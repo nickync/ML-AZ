@@ -15,8 +15,16 @@ class LinearDeepQNetwork(nn.Module):
         
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.device = T.device(self.d())
         self.to(self.device)
+
+    def d(self):
+        if T.cuda.is_available():
+            return 'cuda:0'
+        elif T.backends.mps.is_available():
+            return 'mps'
+        else:
+            return 'cpu'
 
     def forward(self, state):
         layer1 = F.relu(self.fc1(state))
