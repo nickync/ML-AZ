@@ -36,22 +36,22 @@ class Network(nn.Module):
 
 # PART II - TRAIN THE AI
 
-# set up 
-import gymnasium as gym
-env = gym.make('LunarLander-v3')
-state_shape = env.observation_space.shape
-state_size = env.observation_space.shape[0]
-number_actions = env.action_space.n
-print('State shape: ', state_shape)
-print('State size: ', state_size)
-print('Number of actions: ', number_actions)
+# # set up 
+# import gymnasium as gym
+# env = gym.make('LunarLander-v3')
+# state_shape = env.observation_space.shape
+# state_size = env.observation_space.shape[0]
+# number_actions = env.action_space.n
+# print('State shape: ', state_shape)
+# print('State size: ', state_size)
+# print('Number of actions: ', number_actions)
 
-# init hyper-params
-learning_rate = 5e-4
-minibatch_size = 100
-discount_factor = 0.99
-replay_buffer_size = int(1e5)
-interpolation_parameter = 1e-3
+# # init hyper-params
+# learning_rate = 5e-4
+# minibatch_size = 100
+# discount_factor = 0.99
+# replay_buffer_size = int(1e5)
+# interpolation_parameter = 1e-3
 
 # implementing experience replay
 class ReplayMemory(object):
@@ -78,6 +78,7 @@ class ReplayMemory(object):
 
 # implement the DQN class
 class Agent():
+    """ agent interact with the environment, mantains local Q network (select actions) and target Q network (calculate the target Q value) """
     def __init__(self, state_size, action_size):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.state_size = state_size
@@ -97,6 +98,7 @@ class Agent():
                 self.learn(experiences, discount_factor, )
 
     def act(self, state, epsilon = 0.):
+        """ local Q network returns actions and choose final action base on the epsilon """
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.local_qnetwork.eval()
         with torch.no_grad(): # forward state
@@ -109,6 +111,7 @@ class Agent():
             return random.choice(np.arange(self.action_size))
         
     def learn(self, experiences, discount_factor):
+        """ uses experiences from replay memory to update the local Q network's Q value towards the target Q network """
         states, next_states, actions, rewards, dones = experiences
         next_q_targets = self.target_qnetwork(next_states).detach().max(1)[0].unsqueeze(1)
         q_targets = rewards + (discount_factor * next_q_targets * (1 - dones))
@@ -116,11 +119,64 @@ class Agent():
         loss = F.mse_loss(q_expected, q_targets)
         self.optimizer.zero_grad()
         loss.backward()
+        self.optimizer.step()
+        self.soft_update(self.local_qnetwork, self.target_qnetwork, interpolation_parameter)
 
+    def soft_update(self, local_model, target_model, interpolation_parameter):
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(interpolation_parameter * local_param.data + (1.0 - interpolation_parameter) * target_param)
     
 
+# Tarining the DQN agent
 
+if __name__ == '__main__':
+    # set up 
+    import gymnasium as gym
+    env = gym.make('LunarLander-v3')
+    state_shape = env.observation_space.shape
+    state_size = env.observation_space.shape[0]
+    number_actions = env.action_space.n
+    print('State shape: ', state_shape)
+    print('State size: ', state_size)
+    print('Number of actions: ', number_actions)
 
+    # init hyper-params
+    learning_rate = 5e-4
+    minibatch_size = 100
+    discount_factor = 0.99
+    replay_buffer_size = int(1e5)
+    interpolation_parameter = 1e-3
 
+    # Initiallize the DQN agent
+    agent = Agent(state_size, number_actions)
 
+    number_episodes = 2000
+    maximum_number_timesteps_per_episode = 1000
+    epsilon_starting_value = 1.0
+    epsilon_ending_value = 0.01
+    epsilon_decay_value = 0.995
+    epsilon = epsilon_starting_value
+    scores_on_100_episodes = deque(maxlen=100)
+
+    for episode in range(1, number_episodes + 1):
+        state, _ = env.reset()
+        score = 0
+        for t in range(maximum_number_timesteps_per_episode):
+            action = agent.act(state, epsilon)
+            next_state, reward, done, _, _ = env.step(action)
+            agent.step(state, action, reward, next_state, done)
+            state = next_state
+            score += reward
+            if done:
+                break
+
+        scores_on_100_episodes.append(score)
+        epsilon = max(epsilon_ending_value, epsilon_decay_value * epsilon)
+        print('\rEpisode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_on_100_episodes)), end='')
+        if episode % 100 == 0:
+            print('\rEpisode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_on_100_episodes)))
+        if np.mean(scores_on_100_episodes) >= 200.0:
+            print('\nEnvironment solved in {:d} episodes! \tAverage Score: {:.2f}'.format(episode-100, np.mean(scores_on_100_episodes)))
+            torch.save(agent.local_qnetwork.state_dict(), 'checkpoint.pth')
+            break
 
