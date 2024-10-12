@@ -107,6 +107,18 @@ class Agent():
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return random.choice(np.arange(self.action_size))
+        
+    def learn(self, experiences, discount_factor):
+        states, next_states, actions, rewards, dones = experiences
+        next_q_targets = self.target_qnetwork(next_states).detach().max(1)[0].unsqueeze(1)
+        q_targets = rewards + (discount_factor * next_q_targets * (1 - dones))
+        q_expected = self.local_qnetwork(states).gather(1, actions)
+        loss = F.mse_loss(q_expected, q_targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+
+    
+
 
 
 
