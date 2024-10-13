@@ -127,6 +127,54 @@ class Agent():
             target_param.data.copy_(interpolation_parameter * local_param.data + (1.0 - interpolation_parameter) * target_param.data)
     
 
+
+# Video
+import uuid
+import glob
+import io
+import base64
+import imageio
+from IPython.display import HTML, display
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
+import datetime
+import time
+
+def show_video_of_model(agent, env_name):
+    env = gym.make(env_name, render_mode='rgb_array')
+    state, _ = env.reset()
+    done = False
+    frames = []
+    start = time.perf_counter()
+    while not done:
+        frame = env.render()
+        frames.append(frame)
+        action = agent.act(state)
+        state, reward, done, _, _ = env.step(action.item())
+        end = time.perf_counter()
+        if end - start > 60:
+            done = True
+    env.close()
+    name = datetime.datetime.now().strftime('%Y%m%d-%H-%M-%S') + '.mp4'
+    imageio.mimsave(name, frames, fps=30)
+
+#show_video_of_model(agent, 'LunarLander-v2')
+
+def show_video():
+    mp4list = glob.glob('*.mp4')
+    if len(mp4list) > 0:
+        mp4 = mp4list[-1]
+        video = io.open(mp4, 'r+b').read()
+        encoded = base64.b64encode(video)
+        display(HTML(data='''<video alt="test" autoplay
+                loop controls style="height: 400px;">
+                <source src="data:video/mp4;base64,{0}" type="video/mp4" />
+            </video>'''.format(encoded.decode('ascii'))))
+    else:
+        print("Could not find video")
+
+#show_video()
+
+
 # Tarining the DQN agent
 
 if __name__ == '__main__':
@@ -174,9 +222,13 @@ if __name__ == '__main__':
         epsilon = max(epsilon_ending_value, epsilon_decay_value * epsilon)
         print('\rEpisode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_on_100_episodes)), end='')
         if episode % 100 == 0:
+            show_video_of_model(agent, 'LunarLander-v2')
+            show_video()
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_on_100_episodes)))
         if np.mean(scores_on_100_episodes) >= 200.0:
             print('\nEnvironment solved in {:d} episodes! \tAverage Score: {:.2f}'.format(episode-100, np.mean(scores_on_100_episodes)))
             torch.save(agent.local_qnetwork.state_dict(), 'checkpoint.pth')
             break
 
+    show_video_of_model(agent, 'LunarLander-v2')
+    show_video()
