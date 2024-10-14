@@ -227,7 +227,7 @@ if __name__ == '__main__':
             print('\rEpisode {}\tAverage Score: {:.2f}'.format(episode, np.mean(scores_on_100_episodes)))
         if np.mean(scores_on_100_episodes) >= 200.0:
             print('\nEnvironment solved in {:d} episodes! \tAverage Score: {:.2f}'.format(episode-100, np.mean(scores_on_100_episodes)))
-            torch.save(agent.local_qnetwork.state_dict(), 'checkpoint.pth')
+            torch.save(agent.local_qnetwork.state_dict(), 'checkpoint_lunar.pth')
             break
 
     show_video_of_model(agent, 'LunarLander-v2')

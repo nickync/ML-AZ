@@ -27,4 +27,4 @@ while not done:
     action = np.argmax(actions.cpu().data.numpy())
     state, reward, done, _, _ = env.step(action)
 env.close()
-imageio.mimsave('eval.mp4', frames, fps=30)
+imageio.mimsave('eval_pac.mp4', frames, fps=30)
